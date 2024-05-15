@@ -1,3 +1,5 @@
 venv
 .idea
 *.log
+*.env
+vectordb-stores
