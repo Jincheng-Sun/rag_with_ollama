@@ -3,3 +3,5 @@ venv
 *.log
 *.env
 vectordb-stores
+*.pyc
+**/.DS_Store
