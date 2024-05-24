@@ -3,4 +3,5 @@ mattsollamatools==0.0.25
 nltk==3.8.1
 python-magic==0.4.27
 beautifulsoup4==4.12.3
+# On Mac (m1 processor) I had to install this package as well...
 # python-magic-bin==0.4.14
