@@ -1,18 +1,12 @@
 import os
-import time
-import logging
+from typing import List, Dict
 
 import ollama
-import chromadb
+from loguru import logger
 from dotenv import load_dotenv
-from mattsollamatools import chunk_text_by_sentences
+from hashlib import sha256
 
-from utilities import readtext, getconfig
 from db_init import get_collection
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 def init_tokenizer():
@@ -26,7 +20,16 @@ def init_tokenizer():
 
 def init_ollama_backend(model_name: str = "nomic-embed-text"):
     # docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
-    ollama.pull(model_name)
+    try:
+        ollama.embeddings(model_name, prompt="Mic check")
+        logger.info(f"Model {model_name} exists locally.")
+    except ollama.ResponseError as e:
+        if "not found" in e.error:
+            logger.info("Model not found, pulling it now...")
+            ollama.pull(model_name)
+        else:
+            raise e
+
 
 
 def ollama_pull_model(ollama_host: str = "http://localhost:11434", model_name: str = 'llama3'):
@@ -37,22 +40,21 @@ def ollama_pull_model(ollama_host: str = "http://localhost:11434", model_name: s
     logger.info(response.json())
 
 
-def process_chunks(collection, embed_model="nomic-embed-text", source_path: str = "./source_links.txt"):
-    start_time = time.time()
-    with open(source_path) as f:
-        lines = f.readlines()
-        for link in lines:
-            text = readtext(link)
-            chunks = chunk_text_by_sentences(source_text=text, sentences_per_chunk=7, overlap=0)
-            logger.info(f"Processing {link} with {len(chunks)} chunks")
-            for index, chunk in enumerate(chunks):
-                embed = ollama.embeddings(model=embed_model, prompt=chunk)['embedding']
-                logger.info(f"Adding chunk {index} from {link}")
-                collection.add([link + str(index)], [embed], documents=[chunk], metadatas={"source": link})
-    logger.info("--- %s seconds ---" % (time.time() - start_time))
+def batch_write_chunk_to_db(collection, chunks: List[Dict[str, str]], embed_model="nomic-embed-text"):
+    for chunk in chunks:
+        text = chunk['text']
+        metadata = chunk['metadata']
+        # If empty use sha256 on the text
+        try:
+            chunk_id = chunk['id']
+        except KeyError:
+            chunk_id = sha256(text.encode('utf-8')).hexdigest()
+        embedding = ollama.embeddings(model=embed_model, prompt=text)['embedding']
+        collection.add(embeddings=[embedding], documents=[text], metadatas=[metadata], ids=[chunk_id])
 
 
 if __name__ == "__main__":
+    from parser import fitz
     # Load environment variables from .env file
     load_dotenv()
     init_tokenizer()
@@ -62,5 +64,7 @@ if __name__ == "__main__":
     _collection_name = os.getenv("COLLECTION_NAME", "default_collection")
     # Initialize the ChromaDB collection
     _collection = get_collection(_collection_name, _host, _port)
-    _embed_model = "nomic-embed-text"
-    process_chunks(_collection, _embed_model)
+    _embed_model = os.getenv("EMBED_MODEL", "nomic-embed-text")
+    _file_path = "../data/ev_outlook_2023.pdf"
+    _chunks = fitz.pdf_to_text_chunk(_file_path)
+    batch_write_chunk_to_db(_collection, _chunks)
