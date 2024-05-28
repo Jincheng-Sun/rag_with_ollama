@@ -2,14 +2,13 @@ version: '3.8'
 
 services:
   ollama:
+    container_name: ollama
+    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
     volumes:
       - ollama:/root/.ollama
-    container_name: ollama
     pull_policy: always
     tty: true
     restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
-    entrypoint: /bin/sh -c "ollama pull ${EMBED_MODEL} && ollama pull ${LANGUAGE_MODEL} && /bin/sh"
 
   open-webui:
     build:
@@ -36,13 +35,12 @@ services:
     restart: unless-stopped
 
   chromadb:
-    image: python:3.9-slim
-    container_name: chromadb
-    ports:
-      - "8000:8000"
     volumes:
       - chromadb_data:/app/my_chroma_data
-    command: /bin/sh -c "pip install chromadb && chroma run --host 0.0.0.0 --port 8000 --path /app/my_chroma_data"
+    image: chromadb/chroma:${CHROMA_DOCKER_TAG-latest}
+    container_name: chromadb
+    ports:
+      - ${CHROMA_DB_PORT-8000}:8000
     environment:
       - CHROMA_DB_PATH=/app/my_chroma_data
     restart: unless-stopped
