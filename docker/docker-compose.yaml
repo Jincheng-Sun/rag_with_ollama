@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  ollama:
+    volumes:
+      - ollama:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
+    entrypoint: /bin/sh -c "ollama pull ${EMBED_MODEL} && ollama pull ${LANGUAGE_MODEL} && /bin/sh"
+
+  open-webui:
+    build:
+      context: .
+      args:
+        OLLAMA_BASE_URL: '/ollama'
+      dockerfile: Dockerfile
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
+    container_name: open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+      - chromadb
+    ports:
+      - ${OPEN_WEBUI_PORT-3000}:8080
+    environment:
+      - 'OLLAMA_BASE_URL=http://ollama:11434'
+      - 'WEBUI_SECRET_KEY='
+      - 'CHROMA_HTTP_HOST=chromadb'
+      - 'CHROMA_HTTP_PORT=8000'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  chromadb:
+    image: python:3.9-slim
+    container_name: chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/app/my_chroma_data
+    command: /bin/sh -c "pip install chromadb && chroma run --host 0.0.0.0 --port 8000 --path /app/my_chroma_data"
+    environment:
+      - CHROMA_DB_PATH=/app/my_chroma_data
+    restart: unless-stopped
+
+volumes:
+  ollama: {}
+  open-webui: {}
+  chromadb_data: {}
