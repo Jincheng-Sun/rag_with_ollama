@@ -5,3 +5,4 @@ venv
 vectordb-stores
 *.pyc
 **/.DS_Store
+data
