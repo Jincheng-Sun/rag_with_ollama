@@ -6,8 +6,6 @@ from loguru import logger
 from dotenv import load_dotenv
 from hashlib import sha256
 
-from db_init import get_collection
-
 
 def init_tokenizer():
     import nltk
@@ -31,7 +29,6 @@ def init_ollama_backend(model_name: str = "nomic-embed-text"):
             raise e
 
 
-
 def ollama_pull_model(ollama_host: str = "http://localhost:11434", model_name: str = 'llama3'):
     import requests
     url = f"{ollama_host}/api/pull"
@@ -41,6 +38,9 @@ def ollama_pull_model(ollama_host: str = "http://localhost:11434", model_name: s
 
 
 def batch_write_chunk_to_db(collection, chunks: List[Dict[str, str]], embed_model="nomic-embed-text"):
+    # Replace with a pydantic or dataclass later
+    if not isinstance(chunks, dict):
+        raise TypeError(f"Expect the input chunk to be of dictionary type, got {type(chunks)}.")
     for chunk in chunks:
         text = chunk['text']
         metadata = chunk['metadata']
@@ -54,7 +54,9 @@ def batch_write_chunk_to_db(collection, chunks: List[Dict[str, str]], embed_mode
 
 
 if __name__ == "__main__":
-    from parser import fitz
+    from parsers import pdf
+    from start import get_collection, start_chroma_db_server
+
     # Load environment variables from .env file
     load_dotenv()
     init_tokenizer()
@@ -63,8 +65,15 @@ if __name__ == "__main__":
     _port = int(os.getenv("CHROMA_PORT", 8000))
     _collection_name = os.getenv("COLLECTION_NAME", "default_collection")
     # Initialize the ChromaDB collection
-    _collection = get_collection(_collection_name, _host, _port)
+    try:
+        _collection = get_collection(_collection_name, _host, _port)
+    except ConnectionError as e:
+        logger.error(f"Error connecting the DB server, trying to start now... Original Error message: {e}")
+        _db_path = os.getenv("CHROMA_DB_PATH", "../vectordb-stores/chromadb")
+        start_chroma_db_server(_host, _port, _db_path)
+        _collection = get_collection(_collection_name, _host, _port)
+    # Convert PDF to text, split into chunks, embed with "nomic-embed-text" model and write to chroma DB.
     _embed_model = os.getenv("EMBED_MODEL", "nomic-embed-text")
     _file_path = "../data/ev_outlook_2023.pdf"
-    _chunks = fitz.pdf_to_text_chunk(_file_path)
+    _chunks = pdf.pdf_to_text_chunk(_file_path)
     batch_write_chunk_to_db(_collection, _chunks)
