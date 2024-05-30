@@ -1,9 +1,11 @@
 
 # Capacities
 
+## Expected Design of the System (draft)
+![System Design](./system_design.png)
 ## Current Capacity
 
-- **UI**:
+- **UI (Open WebUI)**:
   - Attach document(s) in chat
   - Upload document(s) in workspace
   - Reference a single document in chat
