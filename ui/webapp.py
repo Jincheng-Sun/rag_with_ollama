@@ -1,18 +1,18 @@
-import time
-
 import streamlit as st
+from ollama import chat
 
-USER_ROLE_NAME = "User"
-AGENT_ROLE_NAME = "Assistant"
+USER_ROLE_NAME = "user"
+AGENT_ROLE_NAME = "assistant"
 STREAM_OUTPUT = True
+LLM_NAME = "phi3"
+OLLAMA_BASE_URL = "localhost:11434"
 
 
 # Streamed response emulator
-def response_generator():
-    """A meaningless response generator, counting from 0 to 9."""
-    for i in range(10):
-        yield f"{i}" + " "
-        time.sleep(0.05)
+def response_generator(messages):
+    """Get response from a local Ollama model, in the future, change to API calls to remote models"""
+    for chunk in chat(LLM_NAME, messages=messages, stream=True):
+        yield chunk['message']['content']
 
 
 st.title("FakeGPT")
@@ -36,15 +36,11 @@ if prompt := st.chat_input("What is up?"):
     # Display assistant response in chat message container
     with st.chat_message(AGENT_ROLE_NAME):
         if STREAM_OUTPUT is True:
-            # Option 1: Stream output
-            stream = [
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ]
-            response = st.write_stream(response_generator())
+            # Option 1: Streaming output
+            response = st.write_stream(response_generator(st.session_state.messages))
         else:
             # Option 2: Dump the whole response
-            response = "".join(response_generator())
+            response = "".join(response_generator(st.session_state.messages))
             # Display assistant response in chat message container
             st.markdown(response)
 
