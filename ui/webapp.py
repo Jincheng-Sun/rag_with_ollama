@@ -1,11 +1,13 @@
+import os
+
 import streamlit as st
 from ollama import chat
 
-USER_ROLE_NAME = "user"
-AGENT_ROLE_NAME = "assistant"
-STREAM_OUTPUT = True
-LLM_NAME = "phi3"
-OLLAMA_BASE_URL = "localhost:11434"
+USER_ROLE_NAME = os.getenv('USER_ROLE_NAME', "user")
+AGENT_ROLE_NAME = os.getenv('AGENT_ROLE_NAME', "assistant")
+STREAM_OUTPUT = bool(os.getenv('STREAM_OUTPUT', True))
+LLM_NAME = os.getenv('LLM_NAME', "phi3")
+OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', "localhost:11434")
 
 
 # Streamed response emulator
